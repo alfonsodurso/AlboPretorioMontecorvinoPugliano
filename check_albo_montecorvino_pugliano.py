@@ -1,4 +1,4 @@
-# check_albo_montecorvino_pugliano.py
+# check_albo_montecorvino.py (versione V7 con formattazione data/numero corretta)
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -7,13 +7,11 @@ import os
 import json
 
 # --- CONFIGURAZIONE ---
-# Leggi i segreti dalle variabili d'ambiente di GitHub Actions
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 GIST_ID = os.getenv('GIST_ID')
 GIST_SECRET_TOKEN = os.getenv('GIST_SECRET_TOKEN')
 
-# Nome del file all'interno del Gist
 GIST_FILENAME = 'processed_ids_montecorvino.txt'
 
 # --- URL STABILI ---
@@ -50,17 +48,25 @@ def update_gist_content(new_content):
         print(f"❌ Errore nell'aggiornare il Gist: {e}")
 
 def send_telegram_notification(publication):
-    """Invia una notifica tramite il bot di Telegram."""
+    """Invia una notifica tramite il bot di Telegram con la nuova formattazione."""
+    # --- MODIFICA CHIAVE 1: Formattazione del messaggio ---
+    
+    # Costruisce la stringa del periodo in modo sicuro
+    periodo_pubblicazione = publication['data_inizio']
+    if publication['data_fine']:
+        periodo_pubblicazione += f" - {publication['data_fine']}"
+
     message_parts = [
-        f"🔔 *Nuova Pubblicazione (Montecorvino P.)*",
+        f"🔔 *Nuova Pubblicazione*",
         f"\n*Oggetto:* {publication['oggetto']}",
         f"\n*Tipo Atto:* {publication['tipo']}",
-        f"*Numero:* {publication['numero']} del {publication['data_pubblicazione']}",
+        f"*Numero:* {publication['numero']}",
+        f"*Periodo pubblicazione:* {periodo_pubblicazione}",
         f"\n[Vedi Dettagli e Allegati]({publication['url_dettaglio']})"
     ]
     final_message = "\n".join(message_parts)
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': final_message, 'parse_mode': 'Markdown'}
+    payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': final_message, 'parse_mode': 'Markdown', 'disable_web_page_preview': True}
     try:
         response = requests.post(url, data=payload)
         response.raise_for_status()
@@ -110,15 +116,20 @@ def check_for_new_publications():
             cells = row.find_all('td')
             if len(cells) >= 5:
                 numero_atto = cells[0].get_text(strip=True)
-                tipo_atto = ' / '.join(cells[1].get_text(separator=' ').split())
+                tipo_atto = ' '.join(cells[1].get_text(strip=True).split())
                 oggetto = cells[2].get_text(strip=True)
-                data_inizio = cells[3].get_text(strip=True).split()[0]
+                
+                # --- MODIFICA CHIAVE 2: Estrazione di entrambe le date ---
+                date_parts = cells[3].get_text(strip=True).split()
+                data_inizio = date_parts[0] if date_parts else ''
+                data_fine = date_parts[1] if len(date_parts) > 1 else ''
+
                 detail_link_tag = cells[4].find('a', title='Apri Dettaglio')
                 url_dettaglio = urljoin(BASE_URL, detail_link_tag['href']) if detail_link_tag else ''
 
                 publication_details = {
                     'id': act_id, 'oggetto': oggetto, 'numero': numero_atto,
-                    'tipo': tipo_atto, 'data_pubblicazione': data_inizio,
+                    'tipo': tipo_atto, 'data_inizio': data_inizio, 'data_fine': data_fine, # Salva entrambe le date
                     'url_dettaglio': url_dettaglio
                 }
                 new_publications_to_notify.append(publication_details)
