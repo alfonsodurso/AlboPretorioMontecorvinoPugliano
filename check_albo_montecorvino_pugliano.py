@@ -54,7 +54,7 @@ def send_telegram_notification(publication):
         periodo_pubblicazione += f" - {publication['data_fine']}"
 
     message_parts = [
-        f"\n🔔 *Nuova Pubblicazione*",
+        f"🔔 *Nuova Pubblicazione*",
         f"\n*Tipo Atto:* {publication['tipo']}",
         f"*Numero:* {publication['numero']}",
         f"*Periodo pubblicazione:* {periodo_pubblicazione}",
