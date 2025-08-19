@@ -1,4 +1,4 @@
-# check_albo_montecorvino.py (versione V7 con formattazione data/numero corretta)
+# check_albo_montecorvino.py (versione V8 - Correzione split date)
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -48,20 +48,17 @@ def update_gist_content(new_content):
         print(f"❌ Errore nell'aggiornare il Gist: {e}")
 
 def send_telegram_notification(publication):
-    """Invia una notifica tramite il bot di Telegram con la nuova formattazione."""
-    # --- MODIFICA CHIAVE 1: Formattazione del messaggio ---
-    
-    # Costruisce la stringa del periodo in modo sicuro
+    """Invia una notifica tramite il bot di Telegram con la formattazione corretta."""
     periodo_pubblicazione = publication['data_inizio']
     if publication['data_fine']:
         periodo_pubblicazione += f" - {publication['data_fine']}"
 
     message_parts = [
-        f"🔔 *Nuova Pubblicazione*",
-        f"\n*Oggetto:* {publication['oggetto']}",
+        f"\n🔔 *Nuova Pubblicazione*",
         f"\n*Tipo Atto:* {publication['tipo']}",
         f"*Numero:* {publication['numero']}",
         f"*Periodo pubblicazione:* {periodo_pubblicazione}",
+        f"\n*Oggetto:* {publication['oggetto']}",
         f"\n[Vedi Dettagli e Allegati]({publication['url_dettaglio']})"
     ]
     final_message = "\n".join(message_parts)
@@ -119,8 +116,9 @@ def check_for_new_publications():
                 tipo_atto = ' '.join(cells[1].get_text(strip=True).split())
                 oggetto = cells[2].get_text(strip=True)
                 
-                # --- MODIFICA CHIAVE 2: Estrazione di entrambe le date ---
-                date_parts = cells[3].get_text(strip=True).split()
+                # --- MODIFICA CHIAVE: Correzione estrazione date con <br /> ---
+                # Usa separator=' ' per trasformare <br /> in uno spazio, poi splitta.
+                date_parts = cells[3].get_text(separator=' ', strip=True).split()
                 data_inizio = date_parts[0] if date_parts else ''
                 data_fine = date_parts[1] if len(date_parts) > 1 else ''
 
@@ -129,7 +127,7 @@ def check_for_new_publications():
 
                 publication_details = {
                     'id': act_id, 'oggetto': oggetto, 'numero': numero_atto,
-                    'tipo': tipo_atto, 'data_inizio': data_inizio, 'data_fine': data_fine, # Salva entrambe le date
+                    'tipo': tipo_atto, 'data_inizio': data_inizio, 'data_fine': data_fine,
                     'url_dettaglio': url_dettaglio
                 }
                 new_publications_to_notify.append(publication_details)
