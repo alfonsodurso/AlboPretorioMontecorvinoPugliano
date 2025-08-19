@@ -1,0 +1,39 @@
+name: Check Albo Pretorio Montecorvino (con Gist)
+
+on:
+  # Permette di eseguire il workflow manualmente dalla pagina Actions di GitHub
+  workflow_dispatch:
+  # Esegue il workflow automaticamente ogni ora, al minuto 15
+  schedule:
+    - cron: '15 * * * *'
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Scarica il codice del tuo repository
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      # 2. Imposta l'ambiente Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 3. Installa le librerie Python necessarie
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Esegue lo script Python
+      - name: Run Python script
+        # Inietta i segreti del repository come variabili d'ambiente
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_SECRET_TOKEN: ${{ secrets.GIST_SECRET_TOKEN }}
+        run: python check_albo_montecorvino_pugliano.py
