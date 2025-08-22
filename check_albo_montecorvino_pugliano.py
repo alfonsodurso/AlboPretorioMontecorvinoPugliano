@@ -1,4 +1,4 @@
-# check_albo_montecorvino_gemini_ocr.py
+# check_albo_montecorvino_pugliano.py
 import os
 import requests
 from bs4 import BeautifulSoup
