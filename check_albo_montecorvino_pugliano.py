@@ -101,7 +101,7 @@ def summarize_text_with_gemini(text):
 
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         prompt = f"Riassumi il seguente documento ufficiale del comune, in italiano. Il riassunto deve essere conciso, chiaro, e deve evidenziare i punti più importanti. Max 1500 caratteri:\n\n{text}"
         response = model.generate_content(prompt)
         return response.text
