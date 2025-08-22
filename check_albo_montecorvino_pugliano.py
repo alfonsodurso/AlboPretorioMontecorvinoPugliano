@@ -1,4 +1,5 @@
-# check_albo_montecorvino_pugliano.py
+# check_albo_montecorvino_pugliano.py (versione corretta e allineata)
+
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -18,9 +19,16 @@ BASE_URL = "https://montecorvinopugliano.trasparenza-valutazione-merito.it/"
 START_URL = "https://montecorvinopugliano.trasparenza-valutazione-merito.it/web/trasparenza/papca-ap/-/papca/igrid/1173286/25141"
 HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
+# --- COSTANTI ---
+SLEEP_BETWEEN_PAGES = 1
+SLEEP_BETWEEN_NOTIFICATIONS = 2
+
 # --- FUNZIONI GIST ---
 def get_gist_data():
-    headers = {'Authorization': f'token {GIST_SECRET_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
+    headers = {
+        'Authorization': f'token {GIST_SECRET_TOKEN}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
     url = f'https://api.github.com/gists/{GIST_ID}'
     try:
         response = requests.get(url, headers=headers)
@@ -35,8 +43,12 @@ def get_gist_data():
         print(f"❌ Errore recupero Gist: {e}")
         return {}
 
+
 def update_gist_data(data):
-    headers = {'Authorization': f'token {GIST_SECRET_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
+    headers = {
+        'Authorization': f'token {GIST_SECRET_TOKEN}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
     url = f'https://api.github.com/gists/{GIST_ID}'
     payload = {'files': {GIST_FILENAME: {'content': json.dumps(data, indent=4)}}}
     try:
@@ -46,23 +58,30 @@ def update_gist_data(data):
     except Exception as e:
         print(f"❌ Errore aggiornamento Gist: {e}")
 
+
 # --- NOTIFICA TELEGRAM ---
 def send_telegram_notification(publication):
     periodo = publication['data_inizio']
     if publication.get('data_fine'):
         periodo += f" - {publication['data_fine']}"
 
+    # Notifica in HTML (più sicura dei caratteri speciali)
     message = (
-        f"📰 *Nuova Pubblicazione*\n\n"
-        f"🗂 *Tipo Atto:* {publication['tipo']}\n"
-        f"🔢 *Numero:* {publication['numero']}\n"
-        f"📅 *Periodo pubblicazione:* {periodo}\n"
-        f"📝 *Oggetto:* {publication['oggetto']}\n"
-        f"🔗 [Vedi Dettagli]({publication['url_dettaglio']})"
+        f"🔔 <b>Nuova Pubblicazione</b>\n\n"
+        f"<b>Tipo Atto:</b> {publication['tipo']}\n"
+        f"<b>Numero:</b> {publication['numero']}\n"
+        f"<b>Periodo pubblicazione:</b> {periodo}\n"
+        f"<b>Oggetto:</b> {publication['oggetto']}\n\n"
+        f"🔗 <a href=\"{publication['url_dettaglio']}\">Vedi Dettagli e Allegati</a>"
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': message, 'parse_mode': 'Markdown', 'disable_web_page_preview': True}
+    payload = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True
+    }
     try:
         r = requests.post(url, data=payload)
         r.raise_for_status()
@@ -72,6 +91,7 @@ def send_telegram_notification(publication):
             print(f"❌ Telegram API: {r.json().get('description')}")
     except Exception as e:
         print(f"❌ Errore invio Telegram: {e}")
+
 
 # --- MAIN ---
 def check_for_new_publications():
@@ -112,9 +132,12 @@ def check_for_new_publications():
                 numero = cells[0].get_text(strip=True)
                 tipo = cells[1].get_text(strip=True)
                 oggetto = cells[2].get_text(strip=True)
+
+                # parsing sicuro delle date
                 date_parts = cells[3].get_text(strip=True).split()
                 data_inizio = date_parts[0] if date_parts else ''
                 data_fine = date_parts[1] if len(date_parts) > 1 else ''
+
                 detail_link_tag = cells[4].find('a', title='Apri Dettaglio')
                 url_dettaglio = urljoin(BASE_URL, detail_link_tag['href']) if detail_link_tag else ''
 
@@ -138,14 +161,18 @@ def check_for_new_publications():
         pagination_ul = soup.select_one('div.pagination ul')
         next_page_link = None
         if pagination_ul:
-            next_tag = pagination_ul.find(lambda tag: tag.name == 'a' and 'Avanti' in tag.get_text() and 'disabled' not in tag.find_parent('li').get('class', []))
+            next_tag = pagination_ul.find(
+                lambda tag: tag.name == 'a'
+                and 'Avanti' in tag.get_text()
+                and 'disabled' not in tag.find_parent('li').get('class', [])
+            )
             if next_tag:
                 next_page_link = next_tag.get('href')
 
         if next_page_link:
             current_url = urljoin(BASE_URL, next_page_link)
             page_num += 1
-            time.sleep(1)
+            time.sleep(SLEEP_BETWEEN_PAGES)
         else:
             current_url = None
 
@@ -155,11 +182,12 @@ def check_for_new_publications():
         print(f"\nTrovati {len(new_publications)} nuovi atti in totale. Invio notifiche...")
         for publication in reversed(new_publications):
             send_telegram_notification(publication)
-            time.sleep(2)
+            time.sleep(SLEEP_BETWEEN_NOTIFICATIONS)
 
         update_gist_data(processed_data)
 
     print("--- Controllo terminato ---")
+
 
 if __name__ == "__main__":
     check_for_new_publications()
