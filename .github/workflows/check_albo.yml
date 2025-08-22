@@ -1,4 +1,4 @@
-name: Check Albo Pretorio Montecorvino (con Gist e log estesi)
+name: Check Albo Pretorio Montecorvino (con Gist, log estesi e notifica errori)
 
 on:
   workflow_dispatch:   # esecuzione manuale
@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Mostra i secrets mascherati (debug: solo per capire se arrivano, non stampa i valori reali)
+      # 4. Mostra se i secrets sono presenti (debug, non stampa i valori reali)
       - name: Debug secrets presence
         run: |
           echo "TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}"
@@ -47,3 +47,16 @@ jobs:
           echo ">>> Avvio script check_albo_montecorvino_pugliano.py"
           python -u check_albo_montecorvino_pugliano.py
           echo ">>> Script completato"
+
+      # 6. Notifica Telegram in caso di errore di uno step precedente
+      - name: Send Telegram notification on failure
+        if: failure()
+        run: |
+          echo "Invio notifica Telegram di errore..."
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="⚠️ Workflow *Check Albo Pretorio Montecorvino* fallito su GitHub Actions.
+Job: ${{ github.job }}
+Run: ${{ github.run_id }}
+Repo: ${{ github.repository }}" \
+            -d parse_mode=Markdown
