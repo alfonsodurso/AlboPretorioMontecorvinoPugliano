@@ -1,39 +1,49 @@
-name: Check Albo Pretorio Montecorvino (con Gist)
+name: Check Albo Pretorio Montecorvino (con Gist e log estesi)
 
 on:
-  # Permette di eseguire il workflow manualmente dalla pagina Actions di GitHub
-  workflow_dispatch:
-  # Esegue il workflow automaticamente ogni ora, al minuto 15
+  workflow_dispatch:   # esecuzione manuale
   schedule:
-    - cron: '15 * * * *'
+    - cron: '15 * * * *'   # ogni ora al minuto 15
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Scarica il codice del tuo repository
+      # 1. Scarica il codice del repository
       - name: Check out repository code
         uses: actions/checkout@v4
-        
+
       # 2. Imposta l'ambiente Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          
-      # 3. Installa le librerie Python necessarie
+
+      # 3. Installa le dipendenze
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
-      # 4. Esegue lo script Python
+
+      # 4. Mostra i secrets mascherati (debug: solo per capire se arrivano, non stampa i valori reali)
+      - name: Debug secrets presence
+        run: |
+          echo "TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}"
+          echo "TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID != '' }}"
+          echo "GIST_ID: ${{ secrets.GIST_ID != '' }}"
+          echo "GIST_SECRET_TOKEN: ${{ secrets.GIST_SECRET_TOKEN != '' }}"
+          echo "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}"
+
+      # 5. Esegue lo script Python con log estesi
       - name: Run Python script
-        # Inietta i segreti del repository come variabili d'ambiente
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GIST_ID: ${{ secrets.GIST_ID }}
           GIST_SECRET_TOKEN: ${{ secrets.GIST_SECRET_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Assicurati di aver aggiunto questo segreto
-        run: python check_albo_montecorvino_pugliano.py
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo ">>> Avvio script check_albo_montecorvino_pugliano.py"
+          python -u check_albo_montecorvino_pugliano.py
+          echo ">>> Script completato"
