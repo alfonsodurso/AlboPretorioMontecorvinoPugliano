@@ -2,6 +2,3 @@ requests
 beautifulsoup4
 lxml
 google-generativeai
-pdfplumber
-pytesseract
-pdf2image
