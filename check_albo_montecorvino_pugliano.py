@@ -1,4 +1,4 @@
-# check_albo_montecorvino.py (versione V9 - con Gemini)
+# check_albo_montecorvino_pugliano.py (versione V9 - con Gemini)
 import requests
 from bs4 import BeautifulSoup
 import time
