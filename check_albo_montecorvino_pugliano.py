@@ -229,3 +229,18 @@ def check_for_new_publications():
             current_url = None
 
     if not new_publications:
+        print("Nessuna nuova pubblicazione trovata in totale.")
+    else:
+        print(f"\nTrovati {len(new_publications)} nuovi atti in totale. Invio notifiche...")
+        for publication in reversed(new_publications):
+            send_telegram_notification(publication)
+            time.sleep(2)
+
+        # Aggiorniamo il Gist una sola volta alla fine
+        update_gist_data(processed_data)
+
+    print("--- Controllo terminato ---")
+
+if __name__ == "__main__":
+    check_for_new_publications()
+
