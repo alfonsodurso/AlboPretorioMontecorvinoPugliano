@@ -53,12 +53,12 @@ def send_telegram_notification(publication):
         periodo += f" - {publication['data_fine']}"
 
     message = (
-        f"🔔 *Nuova Pubblicazione*\n"
-        f"*Tipo Atto:* {publication['tipo']}\n"
-        f"*Numero:* {publication['numero']}\n"
-        f"*Periodo pubblicazione:* {periodo}\n"
-        f"*Oggetto:* {publication['oggetto']}\n"
-        f"[Vedi Dettagli]({publication['url_dettaglio']})"
+        f"📰 *Nuova Pubblicazione*\n"
+        f"\n🗂 *Tipo Atto:* {publication['tipo']}\n"
+        f"🔢 *Numero:* {publication['numero']}\n"
+        f"📅 *Periodo pubblicazione:* {periodo}\n"
+        f"📝 *Oggetto:* {publication['oggetto']}\n"
+        f"🔗 [Vedi Dettagli]({publication['url_dettaglio']})"
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
