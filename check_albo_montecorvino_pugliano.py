@@ -5,19 +5,12 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import time
 import json
-import re
-import pdfplumber
-import io
-import pytesseract
-from pdf2image import convert_from_bytes
-import google.generativeai as genai
 
 # --- CONFIGURAZIONE ---
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 GIST_ID = os.getenv('GIST_ID')
 GIST_SECRET_TOKEN = os.getenv('GIST_SECRET_TOKEN')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 GIST_FILENAME = 'processed_data_montecorvino.json'
 
@@ -53,58 +46,6 @@ def update_gist_data(data):
     except Exception as e:
         print(f"❌ Errore aggiornamento Gist: {e}")
 
-# --- ESTRAZIONE TESTO PDF (pdfplumber + OCR) ---
-def estrai_testo_pdf(pdf_url):
-    if not pdf_url:
-        return "Nessun PDF trovato."
-    try:
-        response = requests.get(pdf_url, headers=HEADERS, stream=True)
-        response.raise_for_status()
-        pdf_bytes = response.content
-
-        testo = ""
-        # 1. Proviamo pdfplumber
-        try:
-            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                for page in pdf.pages:
-                    testo += page.extract_text() or ""
-        except Exception as e:
-            print(f"[!] pdfplumber errore: {e}")
-
-        # 2. Se testo troppo breve, facciamo OCR
-        if len(testo.strip()) < 100:
-            try:
-                pagine = convert_from_bytes(pdf_bytes)
-                testo = ""
-                for pagina in pagine:
-                    testo += pytesseract.image_to_string(pagina, lang="ita") + "\n"
-            except Exception as e:
-                print(f"[!] OCR errore: {e}")
-
-        testo = re.sub(r'\s+', ' ', testo).strip()
-        print(f"📄 Testo estratto ({len(testo)} caratteri)")
-        return testo or "Testo non disponibile."
-    except Exception as e:
-        print(f"❌ Errore scarico/processo PDF: {e}")
-        return "Errore estrazione PDF."
-
-# --- RIASSUNTO CON GEMINI ---
-def summarize_text_with_gemini(text):
-    if not GEMINI_API_KEY:
-        return "Chiave API Gemini non configurata."
-    if not text or len(text) < 100:
-        return "Testo troppo breve o non disponibile per il riassunto."
-
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-2.5-flash-lite')
-        prompt = f"Riassumi il seguente documento ufficiale del comune, in italiano. Il riassunto deve essere conciso, chiaro, evidenziando i punti principali. Max 1500 caratteri:\n\n{text}"
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        print(f"❌ Errore API Gemini: {e}")
-        return "Errore nella generazione del riassunto."
-
 # --- NOTIFICA TELEGRAM ---
 def send_telegram_notification(publication):
     periodo = publication['data_inizio']
@@ -117,8 +58,7 @@ def send_telegram_notification(publication):
         f"*Numero:* {publication['numero']}\n"
         f"*Periodo pubblicazione:* {periodo}\n"
         f"*Oggetto:* {publication['oggetto']}\n"
-        f"[Vedi Dettagli]({publication['url_dettaglio']})\n\n"
-        f"📝 *Riassunto:*\n{publication.get('riassunto', 'Non disponibile.')}"
+        f"[Vedi Dettagli]({publication['url_dettaglio']})"
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -133,22 +73,9 @@ def send_telegram_notification(publication):
     except Exception as e:
         print(f"❌ Errore invio Telegram: {e}")
 
-# --- SUPPORTO PDF DETTAGLIO ---
-def get_pdf_link_from_detail_page(url_dettaglio):
-    try:
-        r = requests.get(url_dettaglio, headers=HEADERS)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, 'lxml')
-        tag = soup.find('a', href=re.compile(r'\.pdf$', re.I))
-        if tag:
-            return urljoin(BASE_URL, tag['href'])
-    except Exception as e:
-        print(f"❌ Errore PDF link: {e}")
-    return None
-
 # --- MAIN ---
 def check_for_new_publications():
-    if not all([TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GIST_ID, GIST_SECRET_TOKEN, GEMINI_API_KEY]):
+    if not all([TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GIST_ID, GIST_SECRET_TOKEN]):
         print("❌ Credenziali mancanti.")
         return
 
@@ -191,10 +118,6 @@ def check_for_new_publications():
                 detail_link_tag = cells[4].find('a', title='Apri Dettaglio')
                 url_dettaglio = urljoin(BASE_URL, detail_link_tag['href']) if detail_link_tag else ''
 
-                pdf_url = get_pdf_link_from_detail_page(url_dettaglio)
-                testo_pdf = estrai_testo_pdf(pdf_url)
-                summary = summarize_text_with_gemini(testo_pdf)
-
                 pub = {
                     'id': act_id,
                     'numero': numero,
@@ -202,18 +125,16 @@ def check_for_new_publications():
                     'oggetto': oggetto,
                     'data_inizio': data_inizio,
                     'data_fine': data_fine,
-                    'url_dettaglio': url_dettaglio,
-                    'riassunto': summary
+                    'url_dettaglio': url_dettaglio
                 }
 
                 new_publications.append(pub)
                 processed_data[act_id] = {
                     'numero': numero,
-                    'oggetto': oggetto,
-                    'riassunto': summary
+                    'oggetto': oggetto
                 }
 
-        # paginazione
+        # Paginazione
         pagination_ul = soup.select_one('div.pagination ul')
         next_page_link = None
         if pagination_ul:
@@ -236,11 +157,9 @@ def check_for_new_publications():
             send_telegram_notification(publication)
             time.sleep(2)
 
-        # Aggiorniamo il Gist una sola volta alla fine
         update_gist_data(processed_data)
 
     print("--- Controllo terminato ---")
 
 if __name__ == "__main__":
     check_for_new_publications()
-
